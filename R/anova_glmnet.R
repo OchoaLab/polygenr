@@ -1,6 +1,6 @@
-#' Assign ANOVA type-II p-values to every submodel of a sparse `glmnet` model
+#' Assign ANOVA type-II -log10 p-values to every submodel of a sparse `glmnet` model
 #'
-#' Given a sparse `glmnet` model (not ridge regression), here we assing ANOVA type-II p-values to every submodel obtained by varying the `lambda` penalty factor (i.e. each column of the `$beta` component matrix of the `glmnet` object).
+#' Given a sparse `glmnet` model (not ridge regression), here we assing ANOVA type-II -log10 p-values to every submodel obtained by varying the `lambda` penalty factor (i.e. each column of the `$beta` component matrix of the `glmnet` object).
 #' To achieve this, each set of selected loci is fit again to the original data without penalization.
 #'
 #' @param beta The matrix of coefficients (component `$beta`) of the `glmnet` object.
@@ -10,15 +10,15 @@
 #' Same as was used in [glmnet_pca()].
 #' @param pcs The PC (eigenvector) matrix (optional).
 #' Same as was used in [glmnet_pca()].
-#' Unlike genotypes, PCs are not assigned p-values.
+#' Unlike genotypes, PCs are not given p-values.
 #'
-#' @return A type-II ANOVA p-value matrix with the same dimensions as `beta`.
-#' Zero coefficients (unselected variables) are assigned p-values of 1.
-#' For each column, selected variables are assigned p-values using [anova2()].
+#' @return A sparse matrix (class `dgCMatrix`) with the same dimensions as `beta`, containing type-II ANOVA -log10 p-values.
+#' Zero coefficients (unselected variables) are assigned values of zero as well (to retain sparsity, imply p-values of 1).
+#' For selected variables in each column, p-values are calculated using [anova2()], see that for more details.
 #'
 #' @examples
 #' \dontrun{
-#' pvals <- anova_glmnet( beta, X, y, pcs )
+#' scores <- anova_glmnet( beta, X, y, pcs )
 #' }
 #' 
 #' @seealso
@@ -56,19 +56,23 @@ anova_glmnet <- function( beta, X, y, pcs = NULL ) {
             stop( 'Number of rows of `pcs` (', nrow( pcs ), ') must equal number of columns of `X` (', n, ')!' )
     }
 
-    # all p-values are 1 until recalculated (most stay 1, for variables that were not selected)
-    pvals <- matrix( 1, nrow = m, ncol = k )
+    ## # all p-values are 1 until recalculated (most stay 1, for variables that were not selected)
+    ## pvals <- matrix( 1, nrow = m, ncol = k )
+    # copy `beta` matrix, this way `scores` is also a compressed, sparse matrix with missing data in the same places
+    scores <- beta
     # navigate each lambda value (column of beta)
     for ( j in 1 : k ) {
         # we don't actually use the coefficients, just presence/absence
         indexes <- which( beta[ , j ] != 0 )
         # sometimes nothing is selected, make sure we don't do anything in that case
+        # this is fine for sparse `scores` matrix too (nothing was there in `beta`)
         if ( length( indexes ) == 0 )
             next
         # also, if number of variables exceed sample size, we can't assign p-values that way either
         # (not expected for decent data sizes, but this is observed in toy test data)
         if ( length( indexes ) >= n )
-            next
+            # next # ok for full matrix, not sparse
+            scores[ indexes, j ] <- 1 # sparse: make sure these get the worst p-values! otherwise the original betas are left there!
         # get subset of genotypes
         Xs <- X[ indexes, , drop = FALSE ]
         # use this magic function to get the anova type-II p-values
@@ -80,10 +84,10 @@ anova_glmnet <- function( beta, X, y, pcs = NULL ) {
         # if there were pcs, they get the next row, remove it too
         if ( !is.null( pcs ) )
             pvals_j <- pvals_j[ -1 ]
-        # store now, R will complain if lengths are wrong
-        pvals[ indexes, j ]  <- pvals_j
+        # turn into -log10(p) scores, store now, let R complain if lengths are wrong
+        scores[ indexes, j ] <- -log10( pvals_j )
     }
 
     # done, return p-value matrix
-    return( pvals )
+    return( scores )
 }

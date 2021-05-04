@@ -5,7 +5,7 @@
 #'
 #' @param X The genotype matrix.
 #' Each row of `X` receives a p-value.
-#' Unlike other functions, where `X` is expected to be genome-wide, here we don't use penalized models so `X` must have fewer predictors (loci) than samples (individuals).
+#' Unlike other functions, where `X` is expected to be genome-wide, here we don't use penalized models so `X` must have fewer predictors (loci) than samples (individuals; if this happens a vector of 1s for all locus p-values is returned).
 #' These predictiors are expected to have been selected in a previous step by `glmnet` or another such approach.
 #' Row names of `X` may contain special characters (including math operations, colons, and spaces; names will be quoted in output) except backticks are not allowed and cause an error.
 #' @param y The trait vector.
@@ -17,6 +17,7 @@
 #' @return A data frame containing these columns: 'Df', 'SS', 'RSS', 'AIC', 'F', 'p'.
 #' The first row is for the full model, followed by statistics for `pcs` if present, followed by per-locus statistics for `X`.
 #' If `X` had row names, these are the names of the variables (row names of this output data frame; possibly quoted with backticks if they had special symbols); otherwise 'x1', 'x2', and so on are used.
+#' When there are as many or more predictors (loci) as there are samples (individuals), or if a perfect fit is detected, data returned is a dummy data frame containing only the 'p' column and with all p-values equal to 1.
 #'
 #' @examples
 #' \dontrun{
@@ -35,6 +36,9 @@ anova2 <- function( X, y, pcs = NULL ) {
         stop( '`X` must be a matrix!' )
     m <- nrow( X )
     n <- ncol( X )
+    # when there are more predictors than samples, just silently return a vector of 1's for all p-values
+    if ( m >= n )
+        return( dummy_df( m, pcs = pcs ) )
     if ( length( y ) != n )
         stop( 'Length of `y` (', length( y ), ') must equal number of columns of `X` (', n, ')!' )
     if ( !is.null( pcs ) ) {
@@ -94,7 +98,7 @@ anova2 <- function( X, y, pcs = NULL ) {
     # if we see an essentially perfect fit, return a dummy data frame with just p-values of 1
     # the length of this data depends on whether `pcs` is null or not
     if (rss < 1e-10 * mss) 
-        return( data.frame( p = rep.int( 1, m + 1 + !is.null( pcs ) ) ) )
+        return( dummy_df( m, pcs = pcs ) )
     
     # now calculate type-II ANOVA p-values
     obj <- stats::drop1( model, test = 'F' )
@@ -106,4 +110,14 @@ anova2 <- function( X, y, pcs = NULL ) {
     names( obj )[ names( obj ) == 'Pr(>F)' ] <- 'p'
     # TODO: rename columns, some are ridiculous
     return( obj )
+}
+
+# return a dummy data frame when there are problems with the data (perfect fits, etc)
+dummy_df <- function( m, pcs = NULL ) {
+    data.frame(
+        p = rep.int(
+            1,
+            m + 1 + !is.null( pcs )
+        )
+    )
 }

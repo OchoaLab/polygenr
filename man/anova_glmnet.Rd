@@ -2,7 +2,7 @@
 % Please edit documentation in R/anova_glmnet.R
 \name{anova_glmnet}
 \alias{anova_glmnet}
-\title{Assign ANOVA type-II p-values to every submodel of a sparse \code{glmnet} model}
+\title{Assign ANOVA type-II -log10 p-values to every submodel of a sparse \code{glmnet} model}
 \usage{
 anova_glmnet(beta, X, y, pcs = NULL)
 }
@@ -17,20 +17,20 @@ Same as was used in \code{\link[=glmnet_pca]{glmnet_pca()}}.}
 
 \item{pcs}{The PC (eigenvector) matrix (optional).
 Same as was used in \code{\link[=glmnet_pca]{glmnet_pca()}}.
-Unlike genotypes, PCs are not assigned p-values.}
+Unlike genotypes, PCs are not given p-values.}
 }
 \value{
-A type-II ANOVA p-value matrix with the same dimensions as \code{beta}.
-Zero coefficients (unselected variables) are assigned p-values of 1.
-For each column, selected variables are assigned p-values using \code{\link[=anova2]{anova2()}}.
+A sparse matrix (class \code{dgCMatrix}) with the same dimensions as \code{beta}, containing type-II ANOVA -log10 p-values.
+Zero coefficients (unselected variables) are assigned values of zero as well (to retain sparsity, imply p-values of 1).
+For selected variables in each column, p-values are calculated using \code{\link[=anova2]{anova2()}}, see that for more details.
 }
 \description{
-Given a sparse \code{glmnet} model (not ridge regression), here we assing ANOVA type-II p-values to every submodel obtained by varying the \code{lambda} penalty factor (i.e. each column of the \verb{$beta} component matrix of the \code{glmnet} object).
+Given a sparse \code{glmnet} model (not ridge regression), here we assing ANOVA type-II -log10 p-values to every submodel obtained by varying the \code{lambda} penalty factor (i.e. each column of the \verb{$beta} component matrix of the \code{glmnet} object).
 To achieve this, each set of selected loci is fit again to the original data without penalization.
 }
 \examples{
 \dontrun{
-pvals <- anova_glmnet( beta, X, y, pcs )
+scores <- anova_glmnet( beta, X, y, pcs )
 }
 
 }

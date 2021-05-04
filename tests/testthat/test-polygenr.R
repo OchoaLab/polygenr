@@ -246,28 +246,37 @@ test_that( "anova_glmnet works", {
     
     # successful run without PCs
     expect_silent(
-        pvals <- anova_glmnet( beta, X, y )
+        scores <- anova_glmnet( beta, X, y )
     )
     # test this matrix
-    expect_true( is.matrix( pvals ) )
-    expect_true( is.numeric( pvals ) )
-    expect_true( !anyNA( pvals ) )
-    expect_true( min( pvals ) >= 0 )
-    expect_true( max( pvals ) <= 1 )
-    expect_equal( nrow( pvals ), m )
-    expect_equal( ncol( pvals ), ncol( beta ) )
+    expect_true( 'dgCMatrix' %in% class( scores ) )
+    #expect_true( is.matrix( scores ) )
+    #expect_true( is.numeric( scores ) )
+    expect_true( !anyNA( scores ) )
+    expect_true( min( scores ) >= 0 )
+    expect_equal( nrow( scores ), m )
+    expect_equal( ncol( scores ), ncol( beta ) )
+    # sparsity is a big part of this data, ensure all of those scores are 0
+    # NOTE: suppressMessages to avoid this message: "<sparse>[ <logic> ] : .M.sub.i.logical() maybe inefficient"
+    expect_true( suppressMessages( all( scores[ beta == 0 ] == 0 ) ) )
+    # conversely, in my random example no proper tests gave zero scores, though they could happend so meh
+    expect_true( suppressMessages( all( scores[ beta != 0 ] >= 0 ) ) )
     
     # successful run with PCs
     expect_silent(
-        pvals <- anova_glmnet( beta, X, y, pcs = pcs )
+        scores <- anova_glmnet( beta, X, y, pcs = pcs )
     )
     # test this matrix
-    expect_true( is.matrix( pvals ) )
-    expect_true( is.numeric( pvals ) )
-    expect_true( !anyNA( pvals ) )
-    expect_true( min( pvals ) >= 0 )
-    expect_true( max( pvals ) <= 1 )
-    expect_equal( nrow( pvals ), m )
-    expect_equal( ncol( pvals ), ncol( beta ) )
+    expect_true( 'dgCMatrix' %in% class( scores ) )
+    ## expect_true( is.matrix( scores ) )
+    ## expect_true( is.numeric( scores ) )
+    expect_true( !anyNA( scores ) )
+    expect_true( min( scores ) >= 0 )
+    expect_equal( nrow( scores ), m )
+    expect_equal( ncol( scores ), ncol( beta ) )
+    # sparsity is a big part of this data, ensure all of those scores are 0
+    # NOTE: suppressMessages to avoid this message: "<sparse>[ <logic> ] : .M.sub.i.logical() maybe inefficient"
+    expect_true( suppressMessages( all( scores[ beta == 0 ] == 0 ) ) )
+    expect_true( suppressMessages( all( scores[ beta != 0 ] >= 0 ) ) )
     
 })

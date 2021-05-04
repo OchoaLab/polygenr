@@ -10,3 +10,9 @@
   Now all variables are quoted with backticks, which avoids this problem.
   Tested to work when names have math operations such as "a+b" (treated as a single variable name now).
   Additionally, an informative error is thrown if a locus name actually contains a backtick (only special character we can't handle).
+
+# 2021-05-04 - polygenr 0.0.2.9000
+
+- Function `anova_glmnet` now returns -log10 p-values as a sparse matrix.
+  Pros: saves memory and runtime.
+  Cons: had to change to return -log10 p-values instead of p-values (to retain sparsity, so that untested variants are all zero)
