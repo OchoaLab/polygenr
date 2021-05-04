@@ -1,0 +1,214 @@
+# simulate random data
+n <- 10
+m <- 100
+r <- 3
+p <- 0.5
+y <- rnorm( n )
+X <- matrix(
+    rbinom( n * m, 2, p ),
+    nrow = m,
+    ncol = n
+)
+
+# things created over the course of the tests
+pcs <- NULL
+obj <- NULL
+
+test_that("pca works", {
+    # one mandatory argument is missing
+    expect_error( pca() )
+    # a successful run, this returns entire eigenvalue matrix (not filtered by r)
+    expect_silent(
+        pcs <- pca( X )
+    )
+    # test PCs
+    expect_true( is.numeric( pcs ) )
+    expect_true( is.matrix( pcs ) )
+    expect_true( !anyNA( pcs ) )
+    expect_equal( nrow( pcs ), n )
+    expect_equal( ncol( pcs ), n )
+    # this is PC-specific, expect orthonormality!
+    expect_equal( crossprod( pcs ), diag( n ) )
+
+    # test version where we want a smaller number of PCs
+    expect_silent(
+        pcs <- pca( X, r = r )
+    )
+    # test PCs
+    expect_true( is.numeric( pcs ) )
+    expect_true( is.matrix( pcs ) )
+    expect_true( !anyNA( pcs ) )
+    expect_equal( nrow( pcs ), n )
+    expect_equal( ncol( pcs ), r )
+    # this is PC-specific, expect orthonormality!
+    expect_equal( crossprod( pcs ), diag( r ) )
+    # NOTE: save these PCs globally!
+    pcs <<- pcs
+    
+    # compare against `popkinsuppl::kinship_std` version, should be identical
+    if ( suppressMessages( suppressWarnings( require( popkinsuppl ) ) ) ) {
+        # this is the expected kinship matrix
+        # (our case equals MOR version only!)
+        kinship_exp <- kinship_std( X, mean_of_ratios = TRUE )
+        # run this way to get kinship estimate with same subset of loci
+        expect_silent(
+            obj <- pca( X, p_cut = 0, want_kinship = TRUE )
+        )
+        kinship_obs <- obj$kinship
+        # compare!
+        expect_equal( kinship_obs, kinship_exp )
+    }
+})
+
+# making sure global `pcs` is right
+expect_true( !is.null( pcs ) )
+## # test PCs
+## expect_true( is.numeric( pcs ) )
+## expect_true( is.matrix( pcs ) )
+## expect_true( !anyNA( pcs ) )
+## expect_equal( nrow( pcs ), n )
+## expect_equal( ncol( pcs ), r )
+## # this is PC-specific, expect orthonormality!
+## expect_equal( crossprod( pcs ), diag( r ) )
+
+test_that("glmnet_pca works", {
+    # die when two mandatory parameters are missing
+    expect_error( glmnet_pca() )
+    expect_error( glmnet_pca( X = X ) )
+    expect_error( glmnet_pca( y = y ) )
+
+    # a successful run
+    # without PCs, it should equal basic glmnet
+    expect_silent(
+        obj <- glmnet_pca( X, y )
+    )
+    # test object
+    expect_equal( class( obj ), c( "elnet", "glmnet" ) )
+    # there's a lot of elements here that we don't modify or edit, let's just assume they're right
+    # let's look at things we do edit though (not in this case in particular, but in the pcs case, might as well do it here too)
+    expect_true( 'dgCMatrix' %in% class( obj$beta ) )
+    n_lambda <- length( obj$lambda ) # data-dependent value?
+    expect_equal( nrow( obj$beta ), m )
+    expect_equal( ncol( obj$beta ), n_lambda )
+    expect_equal( obj$dim[ 1 ], m )
+    expect_equal( obj$dim[ 2 ], n_lambda )
+
+    # repeat with PCs
+    expect_silent(
+        obj <- glmnet_pca( X, y, pcs = pcs )
+    )
+    # test object
+    expect_equal( class( obj ), c( "elnet", "glmnet" ) )
+    # there's a lot of elements here that we don't modify or edit, let's just assume they're right
+    # let's look at things we do edit though (not in this case in particular, but in the pcs case, might as well do it here too)
+    expect_true( 'dgCMatrix' %in% class( obj$beta ) )
+    n_lambda <- length( obj$lambda ) # data-dependent value?
+    expect_equal( nrow( obj$beta ), m ) # still true because results exclude PCs
+    expect_equal( ncol( obj$beta ), n_lambda )
+    expect_equal( obj$dim[ 1 ], m )
+    expect_equal( obj$dim[ 2 ], n_lambda )
+    # save this last version globally
+    obj <<- obj
+})
+
+# making sure global `obj` is right
+expect_true( !is.null( obj ) )
+
+test_that( "scores_glmnet works", {
+    # mandatory arguments are missing
+    expect_error( scores_glmnet() )
+    # a successful run
+    expect_silent(
+        scores <- scores_glmnet( obj$beta )
+    )
+    # test scores
+    expect_true( is.numeric( scores ) )
+    expect_true( !anyNA( scores ) )
+    expect_equal( length( scores ), m )
+    expect_true( min( scores ) >= 0 )
+    expect_true( max( scores ) <= ncol( obj$beta ) )
+    
+})
+
+test_that( "anova2 works", {
+    # need a subset of genotypes smaller than sample size, so we don't overfit (this anova is an ordinary linear regression, presumably run on a small subset of loci selected by GLMNET!)
+    ns <- round( n/2 )
+    Xs <- X[ 1 : ns, ]
+
+    # expected anova output column names
+    names_exp <- c('Df', 'SS', 'RSS', 'AIC', 'F', 'p')
+    
+    # errors when mandatory arguments are missing
+    expect_error( anova2() )
+    expect_error( anova2( X = Xs ) )
+    expect_error( anova2( y = y ) )
+
+    # a successful run without PCs
+    expect_silent(
+        data <- anova2( Xs, y )
+    )
+    expect_true( is.data.frame( data ) )
+    expect_equal( colnames( data ), names_exp )
+    expect_equal( nrow( data ), ns + 1 ) # includes intercept
+    # remove first row for rest of tests, since it contains several NAs always (intercept term), but other rows shouldn't
+    data <- data[ -1, ]
+    expect_true( !anyNA( data ) )
+    # focus on p-values
+    expect_true( min( data$p ) >= 0 )
+    expect_true( max( data$p ) <= 1 )
+
+    # and a test with PCs
+    expect_silent(
+        data <- anova2( Xs, y, pcs )
+    )
+    expect_true( is.data.frame( data ) )
+    expect_equal( colnames( data ), names_exp )
+    expect_equal( nrow( data ), ns + 2 ) # includes intercept and PCs
+    # remove first row for rest of tests, since it contains several NAs always (intercept term), but other rows shouldn't
+    data <- data[ -1, ]
+    expect_true( !anyNA( data ) )
+    # focus on p-values
+    expect_true( min( data$p ) >= 0 )
+    expect_true( max( data$p ) <= 1 )
+})
+
+test_that( "anova_glmnet works", {
+    # copy this down
+    beta <- obj$beta
+    
+    # errors for missing arguments
+    expect_error( anova_glmnet() )
+    expect_error( anova_glmnet( beta ) )
+    expect_error( anova_glmnet( X = X ) )
+    expect_error( anova_glmnet( y = y ) )
+    expect_error( anova_glmnet( beta, X ) )
+    expect_error( anova_glmnet( beta, y = y ) )
+    expect_error( anova_glmnet( X = X, y = y ) )
+    
+    # successful run without PCs
+    expect_silent(
+        pvals <- anova_glmnet( beta, X, y )
+    )
+    # test this matrix
+    expect_true( is.matrix( pvals ) )
+    expect_true( is.numeric( pvals ) )
+    expect_true( !anyNA( pvals ) )
+    expect_true( min( pvals ) >= 0 )
+    expect_true( max( pvals ) <= 1 )
+    expect_equal( nrow( pvals ), m )
+    expect_equal( ncol( pvals ), ncol( beta ) )
+    
+    # successful run with PCs
+    expect_silent(
+        pvals <- anova_glmnet( beta, X, y, pcs = pcs )
+    )
+    # test this matrix
+    expect_true( is.matrix( pvals ) )
+    expect_true( is.numeric( pvals ) )
+    expect_true( !anyNA( pvals ) )
+    expect_true( min( pvals ) >= 0 )
+    expect_true( max( pvals ) <= 1 )
+    expect_equal( nrow( pvals ), m )
+    expect_equal( ncol( pvals ), ncol( beta ) )
+    
+})

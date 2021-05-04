@@ -1,0 +1,21 @@
+Package: polygenr
+Title: Methods for polygenic models
+Version: 0.0.0.9000
+Authors@R: 
+    person(given = "Alejandro",
+	   family = "Ochoa",
+	   role = c("aut", "cre"),
+	   email = "alejandro.ochoa@duke.edu",
+           comment = c(ORCID = "0000-0003-4928-3403"))
+Description: For now, experiments for applying LASSO and elastic nets to genetic association tests, including methods for ranking variants.
+License: GPL (>= 3)
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1
+Imports:
+    stats,
+    glmnet
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
