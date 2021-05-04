@@ -7,6 +7,7 @@
 #' Each row of `X` receives a p-value.
 #' Unlike other functions, where `X` is expected to be genome-wide, here we don't use penalized models so `X` must have fewer predictors (loci) than samples (individuals).
 #' These predictiors are expected to have been selected in a previous step by `glmnet` or another such approach.
+#' Row names of `X` may contain special characters (including math operations, colons, and spaces; names will be quoted in output) except backticks are not allowed and cause an error.
 #' @param y The trait vector.
 #' It must have length equal to the number of individuals.
 #' @param pcs The PC (eigenvector) matrix (optional).
@@ -15,7 +16,7 @@
 #'
 #' @return A data frame containing these columns: 'Df', 'SS', 'RSS', 'AIC', 'F', 'p'.
 #' The first row is for the full model, followed by statistics for `pcs` if present, followed by per-locus statistics for `X`.
-#' If `X` had rownames, these are the names of the variables, otherwise 'x1', 'x2', and so on are used.
+#' If `X` had row names, these are the names of the variables (row names of this output data frame; possibly quoted with backticks if they had special symbols); otherwise 'x1', 'x2', and so on are used.
 #'
 #' @examples
 #' \dontrun{
@@ -45,17 +46,30 @@ anova2 <- function( X, y, pcs = NULL ) {
 
     # let's hack the setup so it works
     # for this we need to put everything into a data frame and need names
-    # however, keep existing names if present (are there possible errors if the names look like math?)
-    if ( is.null( rownames( X ) ) )
+    # however, keep existing names if present
+    if ( is.null( rownames( X ) ) ) {
         rownames( X ) <- paste0( 'x', 1 : m )
+    } else {
+        # only restriction is names cannot contain backticks!
+        indexes <- grepl( '`', rownames( X ) )
+        if ( any( indexes ) )
+            stop( '`X` cannot contain backticks in its rownames!  Observed cases: ', toString( rownames( X )[ indexes ] ) )
+    }
     # response automatically gets called "y" here!  (no need to add names to it later)
+    # NOTE: `X` gets transposed, so its rows are instead columns in `data`
     data <- cbind( y, as.data.frame( t( X ) ) )
+    
     # now need to hack formula, saw example in ?formula
     # use X's names again, they must match!
-    # here y also matches manually
     # first we have string version only, and exclude response
-    formula <- paste( rownames( X ), collapse= "+" )
-    
+    # first copy down names
+    formula <- rownames( X )
+    # quote names so there's no problems
+    # (names may have bad symbols: one example has "chr:pos" codes, which `as.formula` doesn't like!)
+    formula <- paste0( '`', formula, '`' )
+    # now add as sum (becomes a single string)
+    formula <- paste( formula, collapse= "+" )
+
     if ( !is.null( pcs ) ) {
         # add PCs to data, but since we don't want these separated, have to add them this way
         data$pcs <- pcs
@@ -64,6 +78,7 @@ anova2 <- function( X, y, pcs = NULL ) {
     }
     
     # add response now
+    # here y name matches manually
     formula <- paste0( "y ~ ", formula )
     # convert to proper formula
     formula <- stats::as.formula( formula )

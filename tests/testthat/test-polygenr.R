@@ -153,6 +153,8 @@ test_that( "anova2 works", {
     # remove first row for rest of tests, since it contains several NAs always (intercept term), but other rows shouldn't
     data <- data[ -1, ]
     expect_true( !anyNA( data ) )
+    # rest of names should be variables, which here are these trivial names because X had no names
+    expect_equal( rownames( data ), paste0( 'x', 1 : ns ) )
     # focus on p-values
     expect_true( min( data$p ) >= 0 )
     expect_true( max( data$p ) <= 1 )
@@ -167,9 +169,66 @@ test_that( "anova2 works", {
     # remove first row for rest of tests, since it contains several NAs always (intercept term), but other rows shouldn't
     data <- data[ -1, ]
     expect_true( !anyNA( data ) )
+    # rest of names should be variables, which here are these trivial names because X had no names
+    # PLUS `pcs` must go first
+    expect_equal( rownames( data ), c( 'pcs', paste0( 'x', 1 : ns ) ) )
     # focus on p-values
     expect_true( min( data$p ) >= 0 )
     expect_true( max( data$p ) <= 1 )
+
+    # create problems on purpose
+    # here we focus on special characters in variable names (rownames of X)
+    # this looks like a numeric range, but also resembles chr:pos notation in real genetics applications
+    rownames( Xs ) <- paste0( '1:', 1 : ns )
+    expect_silent(
+        data <- anova2( Xs, y, pcs )
+    )
+    expect_true( is.data.frame( data ) )
+    expect_equal( colnames( data ), names_exp )
+    expect_equal( nrow( data ), ns + 2 ) # includes intercept and PCs
+    # remove first row for rest of tests, since it contains several NAs always (intercept term), but other rows shouldn't
+    data <- data[ -1, ]
+    expect_true( !anyNA( data ) )
+    # rest of names should be variables, here use actual rownames of X
+    # PLUS `pcs` must go first
+    # the quotes go away when variables didn't need them, but stay when they are needed, so this comparison must be sensitive to that
+    # in this case all needed quotes so that's easy
+    expect_equal( rownames( data ), c( 'pcs', paste0( '`', rownames( Xs ), '`' ) ) )
+    # focus on p-values
+    expect_true( min( data$p ) >= 0 )
+    expect_true( max( data$p ) <= 1 )
+
+    # let's construct a wilder case
+    stopifnot( ns == 5 ) # key assumption here
+    rownames( Xs ) <- c( 'a+b', 'a*b', 'name with spaces', '1:10', 'x1' )
+    expect_silent(
+        data <- anova2( Xs, y, pcs )
+    )
+    expect_true( is.data.frame( data ) )
+    expect_equal( colnames( data ), names_exp )
+    expect_equal( nrow( data ), ns + 2 ) # includes intercept and PCs
+    # remove first row for rest of tests, since it contains several NAs always (intercept term), but other rows shouldn't
+    data <- data[ -1, ]
+    expect_true( !anyNA( data ) )
+    # rest of names should be variables, here use actual rownames of X
+    # PLUS `pcs` must go first
+    # the quotes go away when variables didn't need them, but stay when they are needed, so this comparison must be sensitive to that
+    # in this case all needed quotes except for last
+    expect_equal(
+        rownames( data ),
+        c(
+            'pcs',
+            paste0( '`', rownames( Xs )[ 1 : 4 ], '`' ),
+            rownames( Xs )[ 5 ]
+        )
+    )
+    # focus on p-values
+    expect_true( min( data$p ) >= 0 )
+    expect_true( max( data$p ) <= 1 )
+
+    # cause an error by having a name with backticks:
+    rownames( Xs )[ sample( ns, 1 ) ] <- 'x`'
+    expect_error( anova2( Xs, y, pcs ) )
 })
 
 test_that( "anova_glmnet works", {

@@ -10,7 +10,8 @@ anova2(X, y, pcs = NULL)
 \item{X}{The genotype matrix.
 Each row of \code{X} receives a p-value.
 Unlike other functions, where \code{X} is expected to be genome-wide, here we don't use penalized models so \code{X} must have fewer predictors (loci) than samples (individuals).
-These predictiors are expected to have been selected in a previous step by \code{glmnet} or another such approach.}
+These predictiors are expected to have been selected in a previous step by \code{glmnet} or another such approach.
+Row names of \code{X} may contain special characters (including math operations, colons, and spaces; names will be quoted in output) except backticks are not allowed and cause an error.}
 
 \item{y}{The trait vector.
 It must have length equal to the number of individuals.}
@@ -22,7 +23,7 @@ Unlike \code{X}, all of \code{pcs} receives a single p-value (even if it contain
 \value{
 A data frame containing these columns: 'Df', 'SS', 'RSS', 'AIC', 'F', 'p'.
 The first row is for the full model, followed by statistics for \code{pcs} if present, followed by per-locus statistics for \code{X}.
-If \code{X} had rownames, these are the names of the variables, otherwise 'x1', 'x2', and so on are used.
+If \code{X} had row names, these are the names of the variables (row names of this output data frame; possibly quoted with backticks if they had special symbols); otherwise 'x1', 'x2', and so on are used.
 }
 \description{
 This function assings p-values to a polyygenic linear model.

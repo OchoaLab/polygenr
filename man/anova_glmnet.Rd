@@ -35,5 +35,7 @@ pvals <- anova_glmnet( beta, X, y, pcs )
 
 }
 \seealso{
+\code{\link[=anova2]{anova2()}} for additional details and data restrictions.
+
 \code{\link[=scores_glmnet]{scores_glmnet()}} for a different way of scoring/raking variants.
 }

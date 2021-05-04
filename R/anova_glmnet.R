@@ -22,6 +22,8 @@
 #' }
 #' 
 #' @seealso
+#' [anova2()] for additional details and data restrictions.
+#' 
 #' [scores_glmnet()] for a different way of scoring/raking variants.
 #' 
 #' @export
