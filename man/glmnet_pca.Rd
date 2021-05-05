@@ -4,7 +4,7 @@
 \alias{glmnet_pca}
 \title{Fit a polygenic model with \code{glmnet} and principal components}
 \usage{
-glmnet_pca(X, y, pcs = NULL, ...)
+glmnet_pca(X, y, pcs = NULL, cv = FALSE, ...)
 }
 \arguments{
 \item{X}{The genotype matrix.
@@ -17,20 +17,33 @@ It must have length equal to the number of individuals.}
 It must have individuals along the rows and dimensions along the columns.
 Unlike \code{X}, predictors in this \code{pcs} matrix, are not penalized, and their coefficients are not included in the output.}
 
-\item{...}{Additional parameters passed to \code{glmnet}.
+\item{cv}{If \code{TRUE}, run \code{\link[glmnet:cv.glmnet]{glmnet::cv.glmnet()}} instead of \code{\link[glmnet:glmnet]{glmnet::glmnet()}}, returning that respective output (with small modifications).
+Recommended to help pick the best \code{lambda} value for the penalized regression.
+Default \code{FALSE}.
+In both cases, PCs are modeled the same special way described above.}
+
+\item{...}{Additional parameters passed to \code{\link[glmnet:glmnet]{glmnet::glmnet()}} or \code{\link[glmnet:cv.glmnet]{glmnet::cv.glmnet()}}.
 Cannot include \code{penalty.factor}, which is set internally so that loci are equally penalized and \code{pcs} are unpenalized.}
 }
 \value{
-A \code{glmnet} object.
-Here it includes coefficients for every locus in \code{X} (can be sparse) but excludes coefficients for the \code{pcs} elements.
+If \code{cv = FALSE}, a \code{glmnet} object (see \code{\link[glmnet:glmnet]{glmnet::glmnet()}}), otherwise a \code{cv.glmnet} object (see \code{\link[glmnet:cv.glmnet]{glmnet::cv.glmnet()}}).
+However, the respective \code{beta} matrices (\code{obj$beta} or \code{obj$glmnet.fit$beta}, respectively) are modified to exclude coefficients for the \code{pcs} elements (only include coefficients for loci in \code{X}).
 }
 \description{
 This function makes it easy to fit a LASSO or Elastic Net model while including principal components or other fixed effects that are not part of the variable selection process and are not penalized.
 This resembles in spirit and functionality the \code{snpnet} function of the same package, except that one requires the genetic data to be written into a plink2 file whereas this one requires inputs that are ordinary R matrices.
+The cross-validation \code{glmnet} function is also optionally adapted here.
 }
 \examples{
 \dontrun{
+# regular glmnet
 obj <- glmnet_pca(X, y, pcs)
+
+# cross validation version
+obj <- glmnet_pca(X, y, pcs, cv = TRUE)
 }
 
+}
+\seealso{
+\code{\link[glmnet:glmnet]{glmnet::glmnet()}} and \code{\link[glmnet:cv.glmnet]{glmnet::cv.glmnet()}} for the functions this function wraps around, to better understand additional options and return values.
 }

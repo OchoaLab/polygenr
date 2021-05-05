@@ -114,6 +114,46 @@ test_that("glmnet_pca works", {
 # making sure global `obj` is right
 expect_true( !is.null( obj ) )
 
+test_that("glmnet_pca cross-validation works", {
+    # a successful run
+    # without PCs, it should equal basic glmnet
+    # NOTE: reduced nfolds from default of 10 is required for such a tiny dataset
+    expect_silent(
+        obj <- glmnet_pca( X, y, cv = TRUE, nfolds = 3 )
+    )
+    # test object
+    expect_equal( class( obj ), "cv.glmnet" )
+    # there's a lot of elements here that we don't modify or edit, let's just assume they're right
+    # let's look at things we do edit though (not in this case in particular, but in the pcs case, might as well do it here too)
+    # test glmnet subobject, same as before!
+    obj <- obj$glmnet.fit # overwrite for rest of test, for simplicity
+    expect_equal( class( obj ), c( "elnet", "glmnet" ) )
+    expect_true( 'dgCMatrix' %in% class( obj$beta ) )
+    n_lambda <- length( obj$lambda ) # data-dependent value?
+    expect_equal( nrow( obj$beta ), m )
+    expect_equal( ncol( obj$beta ), n_lambda )
+    expect_equal( obj$dim[ 1 ], m )
+    expect_equal( obj$dim[ 2 ], n_lambda )
+    
+    # repeat with PCs
+    expect_silent(
+        obj <- glmnet_pca( X, y, pcs = pcs, cv = TRUE, nfolds = 3 )
+    )
+    # test object
+    expect_equal( class( obj ), "cv.glmnet" )
+    # there's a lot of elements here that we don't modify or edit, let's just assume they're right
+    # let's look at things we do edit though (not in this case in particular, but in the pcs case, might as well do it here too)
+    # test glmnet subobject, same as before!
+    obj <- obj$glmnet.fit # overwrite for rest of test, for simplicity
+    expect_equal( class( obj ), c( "elnet", "glmnet" ) )
+    expect_true( 'dgCMatrix' %in% class( obj$beta ) )
+    n_lambda <- length( obj$lambda ) # data-dependent value?
+    expect_equal( nrow( obj$beta ), m )
+    expect_equal( ncol( obj$beta ), n_lambda )
+    expect_equal( obj$dim[ 1 ], m )
+    expect_equal( obj$dim[ 2 ], n_lambda )
+})
+
 test_that( "scores_glmnet works", {
     # mandatory arguments are missing
     expect_error( scores_glmnet() )

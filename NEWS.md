@@ -16,3 +16,7 @@
 - Function `anova_glmnet` now returns -log10 p-values as a sparse matrix.
   Pros: saves memory and runtime.
   Cons: had to change to return -log10 p-values instead of p-values (to retain sparsity, so that untested variants are all zero)
+
+# 2021-05-05 - polygenr 0.0.3.9000
+
+- Function `glmnet_pca` how supports cross validation (a wrapper around `cv.glmnet` if `cv = TRUE`).
