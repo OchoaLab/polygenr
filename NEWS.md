@@ -20,3 +20,8 @@
 # 2021-05-05 - polygenr 0.0.3.9000
 
 - Function `glmnet_pca` how supports cross validation (a wrapper around `cv.glmnet` if `cv = TRUE`).
+
+# 2021-05-05 - polygenr 0.0.4.9000
+
+- Added function `anova_glmnet_single`, for calculating scores on a single model/lambda (by default, approximately the best in terms of a precalculated cross-validation).
+  This is in contrast to the previous function `anova_glmnet`, which calculates scores for all models/lambdas, which is much slower and not generally recommended anymore.

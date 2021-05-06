@@ -22,6 +22,8 @@
 #' }
 #' 
 #' @seealso
+#' [anova_glmnet_single()] for calculations on a single model (by default, approximately the best) instead of all models (all lambdas), which is much faster and generally recommended.
+#' 
 #' [anova2()] for additional details and data restrictions.
 #' 
 #' [scores_glmnet()] for a different way of scoring/raking variants.
@@ -62,32 +64,18 @@ anova_glmnet <- function( beta, X, y, pcs = NULL ) {
     scores <- beta
     # navigate each lambda value (column of beta)
     for ( j in 1 : k ) {
-        # we don't actually use the coefficients, just presence/absence
-        indexes <- which( beta[ , j ] != 0 )
+        # use this function to perform the bulk of the calculations
+        scores_sparse <- anova_glmnet_single( X, y, pcs = pcs, beta = beta, index = j, ret_sparse = TRUE )
+        
         # sometimes nothing is selected, make sure we don't do anything in that case
         # this is fine for sparse `scores` matrix too (nothing was there in `beta`)
-        if ( length( indexes ) == 0 )
+        if ( length( scores_sparse$indexes ) == 0 )
             next
-        # also, if number of variables exceed sample size, we can't assign p-values that way either
-        # (not expected for decent data sizes, but this is observed in toy test data)
-        if ( length( indexes ) >= n )
-            # next # ok for full matrix, not sparse
-            scores[ indexes, j ] <- 1 # sparse: make sure these get the worst p-values! otherwise the original betas are left there!
-        # get subset of genotypes
-        Xs <- X[ indexes, , drop = FALSE ]
-        # use this magic function to get the anova type-II p-values
-        # passing null `pcs` is ok
-        data <- anova2( Xs, y, pcs = pcs )
-        # data is a data.frame, extract subset of interest, namely p-values
-        # remove first row (intercept term, always equals NA)
-        pvals_j <- data$p[ -1 ]
-        # if there were pcs, they get the next row, remove it too
-        if ( !is.null( pcs ) )
-            pvals_j <- pvals_j[ -1 ]
-        # turn into -log10(p) scores, store now, let R complain if lengths are wrong
-        scores[ indexes, j ] <- -log10( pvals_j )
+        
+        # in all other cases, copy over this way
+        scores[ scores_sparse$indexes, j ] <- scores_sparse$scores
     }
-
+    
     # done, return p-value matrix
     return( scores )
 }

@@ -3,16 +3,23 @@ n <- 10
 m <- 100
 r <- 3
 p <- 0.5
-y <- rnorm( n )
 X <- matrix(
     rbinom( n * m, 2, p ),
     nrow = m,
     ncol = n
 )
+#y <- rnorm( n )
+# to have more successful tests (where glmnet selects loci), trait is actually given by X
+m_causal <- 20
+causal_indexes <- sample( m, m_causal )
+causal_coeffs <- rnorm( m_causal )
+y <- drop( causal_coeffs %*% X[ causal_indexes, ] )
+expect_equal( length( y ), n )
 
 # things created over the course of the tests
 pcs <- NULL
 obj <- NULL
+obj_cv <- NULL
 
 test_that("pca works", {
     # one mandatory argument is missing
@@ -141,6 +148,8 @@ test_that("glmnet_pca cross-validation works", {
     )
     # test object
     expect_equal( class( obj ), "cv.glmnet" )
+    # save globally
+    obj_cv <<- obj
     # there's a lot of elements here that we don't modify or edit, let's just assume they're right
     # let's look at things we do edit though (not in this case in particular, but in the pcs case, might as well do it here too)
     # test glmnet subobject, same as before!
@@ -153,6 +162,9 @@ test_that("glmnet_pca cross-validation works", {
     expect_equal( obj$dim[ 1 ], m )
     expect_equal( obj$dim[ 2 ], n_lambda )
 })
+
+# making sure global `obj_cv` is right
+expect_true( !is.null( obj_cv ) )
 
 test_that( "scores_glmnet works", {
     # mandatory arguments are missing
@@ -271,6 +283,89 @@ test_that( "anova2 works", {
     expect_error( anova2( Xs, y, pcs ) )
 })
 
+test_that( "anova_glmnet_single works", {
+    # copy some stuff down
+    beta <- obj_cv$glmnet.fit$beta
+    index_min <- obj_cv$index[1]
+    index_1se <- obj_cv$index[1]
+    indexes_exp_min <- which( beta[ , index_min ] != 0 )
+    indexes_exp_1se <- which( beta[ , index_1se ] != 0 )
+    
+    # make sure it dies with missing arguments
+    expect_error( anova_glmnet_single() )
+    expect_error( anova_glmnet_single( X = X ) )
+    expect_error( anova_glmnet_single( y = y ) )
+    expect_error( anova_glmnet_single( X = X, y = y ) )
+    # version with `beta` shouldn't work with default `index = 'min'`)
+    expect_error( anova_glmnet_single( X, y, beta = beta ) )
+    expect_error( anova_glmnet_single( X, y, beta = beta, index = '1se' ) ) # ditto
+    # try bad values of index
+    expect_error( anova_glmnet_single( X, y, beta = beta, index = -1 ) )
+    expect_error( anova_glmnet_single( X, y, beta = beta, index = 5.5 ) )
+    expect_error( anova_glmnet_single( X, y, beta = beta, index = ncol( beta ) + 1 ) )
+
+    # successful run with `obj_cv`, without PCs
+    # not completely proper, since `obj_cv` used PCs, but meh
+    expect_silent(
+        scores <- anova_glmnet_single( X, y, obj_cv = obj_cv )
+    )
+    expect_true( is.numeric( scores ) )
+    expect_true( !anyNA( scores ) )
+    expect_true( min( scores ) >= 0 )
+    expect_equal( length( scores ), m )
+    # sparsity is a big part of this data, ensure all of those scores are 0
+    # NOTE: using "min" index for column of `beta`
+    expect_true( all( scores[ -indexes_exp_min ] == 0 ) )
+
+    # successful run with `obj_cv`, with PCs, keep them around from now on
+    expect_silent(
+        scores <- anova_glmnet_single( X, y, pcs = pcs, obj_cv = obj_cv )
+    )
+    expect_true( is.numeric( scores ) )
+    expect_true( !anyNA( scores ) )
+    expect_true( min( scores ) >= 0 )
+    expect_equal( length( scores ), m )
+    # sparsity is a big part of this data, ensure all of those scores are 0
+    # NOTE: using "min" index for column of `beta`
+    expect_true( all( scores[ -indexes_exp_min ] == 0 ) )
+
+    # run with sparse return
+    expect_silent(
+        scores_sparse <- anova_glmnet_single( X, y, pcs = pcs, obj_cv = obj_cv, ret_sparse = TRUE )
+    )
+    expect_true( is.list( scores_sparse ) )
+    expect_equal( names( scores_sparse ), c('indexes', 'scores') )
+    # these values should agree with our previous data/calculations!
+    expect_equal( scores_sparse$indexes, indexes_exp_min )
+    expect_equal( scores_sparse$scores, scores[ indexes_exp_min ] )
+
+    # run with `index = "1se"`
+    expect_silent(
+        scores2 <- anova_glmnet_single( X, y, pcs = pcs, obj_cv = obj_cv, index = '1se' )
+    )
+    expect_true( is.numeric( scores2 ) )
+    expect_true( !anyNA( scores2 ) )
+    expect_true( min( scores2 ) >= 0 )
+    expect_equal( length( scores2 ), m )
+    # sparsity is a big part of this data, ensure all of those scores are 0
+    # NOTE: using "1se" index for column of `beta`
+    expect_true( all( scores2[ -indexes_exp_1se ] == 0 ) )
+    
+    # run with `index = "min"` but passed as number
+    # expect identical results to before
+    expect_silent(
+        scores2 <- anova_glmnet_single( X, y, pcs = pcs, obj_cv = obj_cv, index = index_min )
+    )
+    expect_equal( scores2, scores )
+    
+    # successful run with `beta`, run with same parameters as `obj_cv` for comparison
+    # expect identical results to before
+    expect_silent(
+        scores2 <- anova_glmnet_single( X, y, pcs = pcs, beta = beta, index = index_min )
+    )
+    expect_equal( scores2, scores )
+})
+
 test_that( "anova_glmnet works", {
     # copy this down
     beta <- obj$beta
@@ -299,8 +394,6 @@ test_that( "anova_glmnet works", {
     # sparsity is a big part of this data, ensure all of those scores are 0
     # NOTE: suppressMessages to avoid this message: "<sparse>[ <logic> ] : .M.sub.i.logical() maybe inefficient"
     expect_true( suppressMessages( all( scores[ beta == 0 ] == 0 ) ) )
-    # conversely, in my random example no proper tests gave zero scores, though they could happend so meh
-    expect_true( suppressMessages( all( scores[ beta != 0 ] >= 0 ) ) )
     
     # successful run with PCs
     expect_silent(
@@ -317,6 +410,5 @@ test_that( "anova_glmnet works", {
     # sparsity is a big part of this data, ensure all of those scores are 0
     # NOTE: suppressMessages to avoid this message: "<sparse>[ <logic> ] : .M.sub.i.logical() maybe inefficient"
     expect_true( suppressMessages( all( scores[ beta == 0 ] == 0 ) ) )
-    expect_true( suppressMessages( all( scores[ beta != 0 ] >= 0 ) ) )
     
 })
