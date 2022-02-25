@@ -61,6 +61,8 @@ scores <- anova_glmnet_single( X, y, pcs, beta = beta, index = 50 )
 \seealso{
 \code{\link[=glmnet_pca]{glmnet_pca()}}, particularly option \code{cv = TRUE}, for obtaining cross-validation objects with PCs.
 
+\code{\link[=anova_single]{anova_single()}} for scoring a model specified by locus indexes only.
+
 \code{\link[=anova_glmnet]{anova_glmnet()}} for a version that calculates scores for all models (all lambdas), though it is much slower and not generally recommended.
 
 \code{\link[=anova2]{anova2()}} for additional details and data restrictions.

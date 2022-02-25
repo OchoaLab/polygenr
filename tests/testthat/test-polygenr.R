@@ -8,12 +8,17 @@ X <- matrix(
     nrow = m,
     ncol = n
 )
-#y <- rnorm( n )
-# to have more successful tests (where glmnet selects loci), trait is actually given by X
+
+#y <- rnorm( n ) # completely random (no signal)
+# to have more successful tests (where glmnet selects loci because there's signal), trait is actually given by X
 m_causal <- 20
 causal_indexes <- sample( m, m_causal )
 causal_coeffs <- rnorm( m_causal )
 y <- drop( causal_coeffs %*% X[ causal_indexes, ] )
+# to mix signal and noise, first standardize
+y <- drop( scale( y ) )
+# then add standard normal noise
+y <- y + rnorm( n )
 expect_equal( length( y ), n )
 
 # things created over the course of the tests
@@ -281,6 +286,56 @@ test_that( "anova2 works", {
     # cause an error by having a name with backticks:
     rownames( Xs )[ sample( ns, 1 ) ] <- 'x`'
     expect_error( anova2( Xs, y, pcs ) )
+})
+
+test_that( "anova_single works", {
+    # select random loci for this test
+    # (though of same length, these don't equal `causal_indexes`)
+    indexes <- sample( m, m_causal )
+    
+    # make sure it dies with missing arguments
+    expect_error( anova_single() )
+    expect_error( anova_single( X = X ) )
+    expect_error( anova_single( y = y ) )
+    expect_error( anova_single( indexes = indexes ) )
+    expect_error( anova_single( X = X, y = y ) )
+    expect_error( anova_single( X = X, indexes = indexes ) )
+    expect_error( anova_single( y = y, indexes = indexes ) )
+    # try bad values of index
+    expect_error( anova_single( X, y, indexes = -1 ) )
+    expect_error( anova_single( X, y, indexes = m + 1 ) )
+    
+    # successful run without PCs
+    expect_silent(
+        scores <- anova_single( X, y, indexes )
+    )
+    expect_true( is.numeric( scores ) )
+    expect_true( !anyNA( scores ) )
+    expect_true( min( scores ) >= 0 )
+    expect_equal( length( scores ), m )
+    # sparsity is a big part of this data, ensure all of those scores are 0
+    expect_true( all( scores[ -indexes ] == 0 ) )
+
+    # successful run with PCs, keep them around from now on
+    expect_silent(
+        scores <- anova_single( X, y, indexes, pcs = pcs )
+    )
+    expect_true( is.numeric( scores ) )
+    expect_true( !anyNA( scores ) )
+    expect_true( min( scores ) >= 0 )
+    expect_equal( length( scores ), m )
+    # sparsity is a big part of this data, ensure all of those scores are 0
+    expect_true( all( scores[ -indexes ] == 0 ) )
+
+    # run with sparse return
+    expect_silent(
+        scores_sparse <- anova_single( X, y, indexes, pcs = pcs, ret_sparse = TRUE )
+    )
+    expect_true( is.list( scores_sparse ) )
+    expect_equal( names( scores_sparse ), c('indexes', 'scores') )
+    # these values should agree with our previous data/calculations!
+    expect_equal( scores_sparse$indexes, indexes )
+    expect_equal( scores_sparse$scores, scores[ indexes ] )
 })
 
 test_that( "anova_glmnet_single works", {

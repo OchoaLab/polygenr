@@ -37,6 +37,8 @@ scores <- anova_glmnet( beta, X, y, pcs )
 \seealso{
 \code{\link[=anova_glmnet_single]{anova_glmnet_single()}} for calculations on a single model (by default, approximately the best) instead of all models (all lambdas), which is much faster and generally recommended.
 
+\code{\link[=anova_single]{anova_single()}} for scoring a model specified by locus indexes only.
+
 \code{\link[=anova2]{anova2()}} for additional details and data restrictions.
 
 \code{\link[=scores_glmnet]{scores_glmnet()}} for a different way of scoring/raking variants.

@@ -3,5 +3,6 @@
 export(anova2)
 export(anova_glmnet)
 export(anova_glmnet_single)
+export(anova_single)
 export(glmnet_pca)
 export(scores_glmnet)

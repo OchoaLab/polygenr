@@ -24,6 +24,8 @@
 #' @seealso
 #' [anova_glmnet_single()] for calculations on a single model (by default, approximately the best) instead of all models (all lambdas), which is much faster and generally recommended.
 #' 
+#' [anova_single()] for scoring a model specified by locus indexes only.
+#'
 #' [anova2()] for additional details and data restrictions.
 #' 
 #' [scores_glmnet()] for a different way of scoring/raking variants.

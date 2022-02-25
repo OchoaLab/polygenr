@@ -1,6 +1,6 @@
 Package: polygenr
 Title: Methods for polygenic models
-Version: 0.0.4.9000
+Version: 0.0.5.9000
 Authors@R: 
     person(given = "Alejandro",
 	   family = "Ochoa",
@@ -10,12 +10,13 @@ Authors@R:
 Description: For now, experiments for applying LASSO and elastic nets to genetic association tests, including methods for ranking variants.
 License: GPL (>= 3)
 Encoding: UTF-8
-LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.1.1
+RoxygenNote: 7.1.2
 Imports:
     stats,
     glmnet
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
+URL: https://github.com/OchoaLab/polygenr
+BugReports: https://github.com/OchoaLab/polygenr/issues

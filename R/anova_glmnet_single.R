@@ -37,6 +37,8 @@
 #' @seealso
 #' [glmnet_pca()], particularly option `cv = TRUE`, for obtaining cross-validation objects with PCs.
 #'
+#' [anova_single()] for scoring a model specified by locus indexes only.
+#'
 #' [anova_glmnet()] for a version that calculates scores for all models (all lambdas), though it is much slower and not generally recommended.
 #' 
 #' [anova2()] for additional details and data restrictions.
@@ -121,65 +123,9 @@ anova_glmnet_single <- function( X, y, pcs = NULL, obj_cv = NULL, beta = NULL, i
     if ( index > k )
         stop( '`index` (', index, ') cannot exceed number of columns of `beta` (', k, ')!' )
     
-    # initialize scores to zero
-    # not needed in sparse return version
-    if ( !ret_sparse )
-        scores <- vector( 'numeric', m )
-    
     # we don't actually use the coefficients, just presence/absence
     indexes <- which( beta[ , index ] != 0 )
-    
-    # sometimes nothing is selected, make sure we don't do anything in that case
-    # this is fine for sparse `scores` matrix too (nothing was there in `beta`)
-    if ( length( indexes ) == 0 ) {
-        if ( ret_sparse ) {
-            # return a list containint two empty vectors
-            # this precise arrangement for `scores` was necessary for unit tests to succeed
-            return( list( indexes = indexes, scores = numeric(0) ) )
-        } else {
-            return( scores )
-        }
-    }
-    
-    # also, if number of variables exceed sample size, we can't assign p-values that way either
-    # (not expected for decent data sizes, but this is observed in toy test data)
-    if ( length( indexes ) >= n ) {
-        if ( ret_sparse ) {
-            # return all zero scores
-            return( list( indexes = indexes, scores = rep.int( 0, length( indexes ) ) ) )
-        } else {
-            return( scores )
-        }
-    }
-    
-    # get subset of genotypes
-    Xs <- X[ indexes, , drop = FALSE ]
-    
-    # use this magic function to get the anova type-II p-values
-    # passing null `pcs` is ok
-    data <- anova2( Xs, y, pcs = pcs )
-    
-    # data is a data.frame, extract subset of interest, namely p-values
-    # remove first row (intercept term, always equals NA)
-    pvals_j <- data$p[ -1 ]
-    
-    # if there were pcs, they get the next row, remove it too
-    if ( !is.null( pcs ) )
-        pvals_j <- pvals_j[ -1 ]
 
-    # at this point, indexes and scores_j should have the same length
-    if ( length( pvals_j ) != length( indexes ) )
-        stop( 'Length of `pvals_j` (', length( pvals_j ), ') and `indexes` (', length( indexes ), ') differs (unexpected)!' )
-    
-    # turn into -log10(p) scores
-    scores_j <- -log10( pvals_j )
-
-    # done, return scores vector
-    if ( ret_sparse ) {
-        return( list( indexes = indexes, scores = scores_j ) )
-    } else {
-        # store now in big vector
-        scores[ indexes ] <- scores_j
-        return( scores )
-    }
+    # the rest is handled by this simpler function!
+    return( anova_single( X, y, indexes, pcs = pcs, ret_sparse = ret_sparse ) )
 }
